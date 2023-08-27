@@ -5,7 +5,7 @@
   "main": "popup.tsx",
   "type": "module",
   "scripts": {
-    "build": "npx tailwindcss -i ./src/popup.css -o ./dist/output.css && webpack"
+    "build": "npx tailwindcss -i ./src/popup.css -o ./dist/output.css && npx tailwindcss -i ./src/content-scripts/modal.css -o ./dist/modal.css && webpack"
   },
   "author": "George Voulgaris",
   "license": "MIT",

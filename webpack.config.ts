@@ -7,9 +7,8 @@ import Dotenv from 'dotenv-webpack';
 const config: webpack.Configuration = {
   mode: 'production',
   entry: {
-    popup: ['./src/popup.tsx', './src/chat-box.tsx'],
+    popup: ['./src/popup.tsx'],
     background: './src/service-workers/background.ts',
-    content: './src/service-workers/content.ts',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -27,7 +26,6 @@ const config: webpack.Configuration = {
           },
         },
       },
-      // { enforce: 'pre', test: /\.js$/, exclude: /node_modules/, loader: 'source-map-loader' },
     ],
   },
   plugins: [
