@@ -36,7 +36,7 @@ export default function ChatContainer({ bookmarksIndexed }) {
     });
     appendMessage({
       type: MessageType.system,
-      message: 'hmm... let ne think...',
+      message: 'hmm... let me think...',
       timestamp: new Date(),
     });
     chrome.runtime.sendMessage({ type: 'REQUEST', message }, async ({ response, matches }) => {
