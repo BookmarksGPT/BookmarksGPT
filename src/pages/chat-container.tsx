@@ -47,14 +47,19 @@ export default function ChatContainer({ bookmarksIndexed }) {
       }));
       appendMessage({
         type: MessageType.system,
-        message: ChatMatches(flatten_matches),
+        message: (
+          <>
+            <ChatMatches matches={flatten_matches} />
+          </>
+        ),
         timestamp: new Date(),
       });
-      appendMessage({
-        type: MessageType.system,
-        message: response,
-        timestamp: new Date(),
-      });
+      response &&
+        appendMessage({
+          type: MessageType.system,
+          message: response,
+          timestamp: new Date(),
+        });
       setDisableInput(false);
       const messagesElement = messagesRef?.current;
       if (messagesElement) {

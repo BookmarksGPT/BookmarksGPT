@@ -5,53 +5,37 @@ import { loadSummarizationChain } from 'langchain/chains';
 import { OpenAI } from 'langchain/llms/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 
-export class Summarization {
+export class Website {
   constructor() {}
-
-  static async getWebsiteDescription(url) {
+  static async getDescription(url) {
     let description;
-    console.log('FETCHING:', url);
-    const llm = new OpenAI({
-      openAIApiKey: process.env.OPENAI_API_KEY,
-      temperature: 0.9,
-    });
-
-    const fullUrl = new URL(url);
 
     try {
+      // TODO: timeout fetch per URL at ~10 seconds
       const web_site = await fetch(url);
       const html = await web_site.text();
 
       // Description
       const match = html.match(/<meta[^>]*name=["']description["'][^>]*content=["'](.*?)["']/i);
-      description = match ? match[1] : null;
+      description = match ? match[1] : '';
 
       console.log(`[${url}] Description: ${description}`);
     } catch (err) {
-      // TODO: store metadata if failed to retrieve content.
-      console.error(`ERROR: ${url}`);
-      console.error(err.message);
+      throw new Error(err.message);
     }
 
-    return {
-      url: `${fullUrl.host}${fullUrl.pathname}`,
-      description,
-    };
+    return description;
   }
 
-  async getWebsiteSummary({ title, url }) {
+  async getSummary({ title, url }) {
     console.log('FETCHING:', title, url);
+    // maybe we need an LLM class
     const llm = new OpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
       temperature: 0.9,
     });
 
     const fullUrl = new URL(url);
-
-    // TODO: "https://youtu.be", localhost or .local, github
-    if (fullUrl.hostname === 'github' || fullUrl.hostname === 'youtube') {
-      return '';
-    }
 
     try {
       const web_site = await fetch(url);
@@ -60,6 +44,11 @@ export class Summarization {
       // Description
       const match = html.match(/<meta[^>]*name=["']description["'][^>]*content=["'](.*?)["']/i);
       const description = match ? match[1] : null;
+
+      // TODO: "https://youtu.be", localhost or .local, github
+      if (fullUrl.hostname === 'github' || fullUrl.hostname === 'youtube') {
+        return '';
+      }
 
       // Summarization
       const transformer = new HtmlToTextTransformer();

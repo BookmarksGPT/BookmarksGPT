@@ -20,14 +20,14 @@
     modal.style.display = 'none';
   };
 
-  chrome.runtime.onMessage.addListener(({ type }) => {
-    // TODO: this doesn't work
-    switch (type) {
-      case 'CLOSE_MODAL':
-        modal.style.display = 'none';
-        return true;
-    }
-  });
+  // chrome.runtime.onMessage.addListener(({ type }) => {
+  // TODO: this doesn't work
+  //   switch (type) {
+  //     case 'CLOSE_MODAL':
+  //       modal.style.display = 'none';
+  //       return true;
+  //   }
+  // });
 
   var modalText = document.createElement('p');
   modalText.innerHTML = 'This is a modal dialog!';
