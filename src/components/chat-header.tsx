@@ -6,6 +6,11 @@ export default function ChatHeader({ setDisableInput, appendMessage }) {
     async function initBookmarks() {
       return await chrome.bookmarks.getTree();
     }
+    appendMessage({
+      type: MessageType.system,
+      message: `Ok I'm on it!`,
+      timestamp: new Date(),
+    });
     setDisableInput(true);
     initBookmarks().then((bookmarks) => {
       chrome.runtime.sendMessage({ type: 'RESET', bookmarks }, async (numOfBookmarks) => {

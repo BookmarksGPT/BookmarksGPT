@@ -17,7 +17,7 @@ export class Conversation {
     const VS = await VectorStore.get();
     const matches = await VS?.vectorStore.similaritySearchWithScore(message, 20);
     const matches_as_context = matches
-      .map((match, index) => {
+      ?.map((match, index) => {
         const { pageContent: title } = match[0];
         const score = match[1];
         return `{ title: '${title}', score: ${~~((score * 10000) / 100)}% }`;
