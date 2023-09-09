@@ -15,7 +15,7 @@ export default function ChatInputBox({ onSubmit, disabled }) {
 
   function submitTextarea() {
     const textarea = textareaRef.current;
-    chrome.runtime.sendMessage({ type: 'CLOSE_MODAL' });
+    // chrome.runtime.sendMessage({ type: 'CLOSE_MODAL' });
 
     if (textarea) {
       const value = textarea.value.trim();

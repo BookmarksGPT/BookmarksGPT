@@ -24,6 +24,7 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
       return true;
     case 'REQUEST':
       Conversation.getResponse(message).then((result) => {
+        console.log('[REQUEST] Sending response to popup');
         sendResponse(result);
       });
       return true;

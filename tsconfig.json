@@ -12,7 +12,8 @@
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": false,
     "noEmit": true,
-    "declaration": true
+    "declaration": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
     "./src/**/*"
