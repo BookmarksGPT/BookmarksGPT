@@ -11,6 +11,9 @@ interface VectorStoreType {
 // init db first time (same as full reset - this will eventually go in settings)
 // add new bookmark
 // update db with new stuff & fetch missing (and empty) descriptions || add new button for testing for now
+// clean this up
+// make sure it works for creating and vectorStore and updating the vectorStore
+
 
 class ProgressTracker {
   total: any[];
@@ -219,7 +222,3 @@ export class Bookmarks {
     });
   }
 }
-
-// clean this up
-// make sure it works for creating and vectorStore and updating the vectorStore
-// DON'T DO ANYTHING ELSE BECAUSE THE TICKET IS EFFECTIVELY DONE
