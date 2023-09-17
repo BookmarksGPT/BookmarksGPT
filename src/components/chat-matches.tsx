@@ -4,7 +4,7 @@ const ChatMatches = ({ matches }) => {
   const [expand, setExpand] = useState(false);
   const topMatchesRef = useRef<null | HTMLLIElement>(null);
   const bottomMatchesRef = useRef<null | HTMLLIElement>(null);
-
+  console.log(`I have ${matches?.length} matches to display.`);
   function onClick() {
     setExpand((previous) => !previous);
   }
@@ -38,7 +38,8 @@ const ChatMatches = ({ matches }) => {
               <small>{metadata?.url?.split('?')[0]}</small>
               <br />
               <small>
-                [{~~((score * 10000) / 100)}%] created at {new Date(metadata?.createdAt).toLocaleDateString()}
+                [{~~((score * 10000) / 100)}%] saved on {new Date(metadata?.createdAt).toLocaleDateString()}
+                {/* saved on {new Date(metadata?.createdAt).toLocaleDateString()} */}
               </small>
             </li>
           );
@@ -61,12 +62,13 @@ const ChatMatches = ({ matches }) => {
               <small>{metadata?.url?.split('?')[0]}</small>
               <br />
               <small>
-                [{~~((score * 10000) / 100)}%] created at {new Date(metadata?.createdAt).toLocaleDateString()}
+                [{~~((score * 10000) / 100)}%] saved on {new Date(metadata?.createdAt).toLocaleDateString()}
+                {/* saved on {new Date(metadata?.createdAt).toLocaleDateString()} */}
               </small>
             </li>
           );
         })}
-        <button onClick={onClick}>{expand ? 'click for less' : 'click for more'}</button>
+        {matches?.length > 3 && <button onClick={onClick}>{expand ? 'click for less' : 'click for more'}</button>}
       </ol>
     </>
   );

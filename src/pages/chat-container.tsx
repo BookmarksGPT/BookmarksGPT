@@ -9,6 +9,7 @@ import ChatMatches from '../components/chat-matches.tsx';
 import ChatUserBubble from '../components/chat-user-bubble.tsx';
 
 export enum MessageType {
+  session = 'session',
   system = 'system',
   user = 'user',
   bot = 'bot',
@@ -22,18 +23,31 @@ interface Message {
 
 export default function ChatContainer({ bookmarksIndexed }) {
   const [isPending, startTransition] = useTransition();
-  const [_messages, setMessages] = useState<Message[]>([]);
   const [disableInput, setDisableInput] = useState(false);
   const messagesRef = useRef<null | HTMLDivElement>(null);
 
-  const db = useDB('BookmarksGPT');
-  const messages = useFind('BookmarksGPT', {
-    selector: {},
-    sort: [{ timestamp: 'asc' }],
+  const db = useDB();
+
+  const mostRecentSession = useFind({
+    selector: {
+      type: MessageType.session,
+      timestamp: { $exists: true },
+    },
+    sort: [{ timestamp: 'desc' }],
+    limit: 1,
+  });
+
+  if (!mostRecentSession) return null;
+
+  const messages = useFind({
+    selector: {
+      type: { $exists: true },
+      timestamp: { $gte: mostRecentSession.timestamp },
+    },
+    sort: ['timestamp'],
   });
 
   function appendMessage(options) {
-    // setMessages((prevMessages) => [...prevMessages, message]);
     const { type, message, matches } = options;
     startTransition(() => {
       db.post({
@@ -53,16 +67,10 @@ export default function ChatContainer({ bookmarksIndexed }) {
   }
 
   async function onSubmit(message) {
-    // Wrap the updates in startTransition
     setDisableInput(true);
     appendMessage({
       type: MessageType.user,
       message: message,
-      timestamp: new Date(),
-    });
-    appendMessage({
-      type: MessageType.system,
-      message: 'hmm... let me think...',
       timestamp: new Date(),
     });
     console.log('message submitted');
@@ -70,14 +78,9 @@ export default function ChatContainer({ bookmarksIndexed }) {
       console.log('response received');
       appendMessage({
         type: MessageType.bot,
-        message: 'Bot message',
+        message: response,
         matches,
       });
-      response &&
-        appendMessage({
-          type: MessageType.system,
-          message: response,
-        });
       setDisableInput(false);
     });
   }
@@ -109,8 +112,18 @@ export default function ChatContainer({ bookmarksIndexed }) {
           className="messages flex-1 overflow-auto h-full flex flex-col scroll-smooth"
           ref={messagesRef}
         >
-          {messages.map(({ type, message, timestamp, matches }) => {
+          {messages?.map(({ type, message, timestamp, matches }) => {
             switch (type) {
+              case MessageType.session:
+                return (
+                  <ol className="text-center font-light text-gray-600 dark:text-gray-200">
+                    <small>
+                      {`Session restarted at ${new Date(timestamp).toLocaleDateString()} ${new Date(
+                        timestamp
+                      ).toLocaleTimeString()}`}
+                    </small>
+                  </ol>
+                );
               case MessageType.system:
                 return (
                   <ChatAIBubble
@@ -136,14 +149,25 @@ export default function ChatContainer({ bookmarksIndexed }) {
                     metadata: r[0].metadata,
                     score: r[1],
                   })) || [];
-                return <ChatMatches matches={flatten_matches} />;
+                return (
+                  <>
+                    <ChatMatches matches={flatten_matches} />
+                    <ChatAIBubble
+                      text={message}
+                      timestamp={`${new Date(timestamp).toLocaleDateString()} ${new Date(
+                        timestamp
+                      ).toLocaleTimeString()}`}
+                    />
+                  </>
+                );
             }
           })}
           {!bookmarksIndexed && <ChatAIIsThinkingBubble text="Please wait....I'm loading your bookmarks" />}
+          {bookmarksIndexed && disableInput && <ChatAIIsThinkingBubble text="hmm... let me think!" />}
         </div>
         <ChatInputBox
           onSubmit={bookmarksIndexed ? onSubmit : () => null}
-          disabled={disableInput}
+          disabled={!bookmarksIndexed || disableInput}
         />
       </div>
     </div>

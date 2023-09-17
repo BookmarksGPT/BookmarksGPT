@@ -1,8 +1,16 @@
-import { Conversation } from '../lib/conversation.ts';
+import PouchDB from 'pouchdb';
 import { Bookmarks } from '../lib/bookmarks.ts';
+import { Conversation } from '../lib/conversation.ts';
+import { MessageType } from '../pages/chat-container.tsx';
+
+const pouch = new PouchDB('BookmarksGPT');
 
 chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, sendResponse) => {
   switch (type) {
+    case 'RESET_SESSION':
+      // unimplemented
+      // mechanism to know when exactly to fold past messages
+      break;
     case 'RESET':
       console.log('Resetting the database');
       Bookmarks.createBookmarkVectorStore(bookmarks).then((result) => {
@@ -14,19 +22,34 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
       });
       return true;
     case 'INITIALIZE':
+      pouch.post({
+        type: MessageType.session,
+        timestamp: Date.now(),
+      });
       Bookmarks.getVectorStore()
         .then((result) => {
           return result ?? Bookmarks.createBookmarkVectorStore(bookmarks);
         })
         .then((result) => {
+          console.log(result?.vectorStore);
           sendResponse(result.numBookmarks);
         });
       return true;
     case 'REQUEST':
-      Conversation.getResponse(message).then((result) => {
-        console.log('[REQUEST] Sending response to popup');
-        sendResponse(result);
-      });
+      // Promise.allSettled([Bookmarks.getBySimilarity(message), run(message)]).then(
+      //   (result: any) => {
+      //     console.log('[REQUEST] Sending response to popup');
+      //     console.log(result);
+      //     sendResponse({ matches: result[0]?.value, response: result[1]?.value });
+      //   }
+      // );
+      Promise.allSettled([Bookmarks.getBySimilarity(message), Conversation.generateChat(message)]).then(
+        (result: any) => {
+          console.log('[REQUEST] Sending response to popup');
+          console.log(result);
+          sendResponse({ matches: result[0]?.value, response: result[1]?.value?.response });
+        }
+      );
       return true;
     default:
       sendResponse(true);

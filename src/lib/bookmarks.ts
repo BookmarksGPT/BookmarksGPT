@@ -1,6 +1,7 @@
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { Website } from './website.ts';
+import PouchDB from 'pouchdb';
 
 interface VectorStoreType {
   vectorStore: MemoryVectorStore;
@@ -11,9 +12,6 @@ interface VectorStoreType {
 // init db first time (same as full reset - this will eventually go in settings)
 // add new bookmark
 // update db with new stuff & fetch missing (and empty) descriptions || add new button for testing for now
-// clean this up
-// make sure it works for creating and vectorStore and updating the vectorStore
-
 
 class ProgressTracker {
   total: any[];
@@ -31,7 +29,14 @@ class ProgressTracker {
   }
 }
 
+interface VectorDocument {
+  vector: any;
+}
+
 export class Bookmarks {
+  static db = new PouchDB<VectorDocument>('BookmarksGPTVectors', {
+    auto_compaction: true,
+  });
   static embeddings = new OpenAIEmbeddings({
     openAIApiKey: process.env.OPENAI_API_KEY,
   });
@@ -89,7 +94,7 @@ export class Bookmarks {
       Bookmarks.embeddings
     );
 
-    Bookmarks.setVectorStore(JSON.stringify(Bookmarks.vectorStore.memoryVectors), Bookmarks.titles.length);
+    Bookmarks.setVectorStore();
     return { vectorStore: Bookmarks.vectorStore, numBookmarks: Bookmarks.titles.length };
   }
 
@@ -114,7 +119,7 @@ export class Bookmarks {
           callback(tracker.updateProgress(index));
         }
       } else {
-        Bookmarks.addVector({ title, url, createdAt, index, description: undefined });
+        Bookmarks.addVector({ title, url, createdAt, index, description: undefined, fetchFailed: false });
         callback(tracker.updateProgress(index));
       }
     });
@@ -124,7 +129,7 @@ export class Bookmarks {
     // this helps keep track of how many have been updated
     const tracker = new ProgressTracker(Bookmarks.titles.length);
 
-    Bookmarks.titles.slice(0, 10).map(({ title, url, createdAt }, index) => {
+    Bookmarks.titles.map(({ title, url, createdAt }, index) => {
       Bookmarks.updateVectorDescription(
         { index, url, title, createdAt },
         () => tracker.updateProgress(index),
@@ -133,7 +138,7 @@ export class Bookmarks {
     });
   }
 
-  static addVector({ title, url, createdAt, index, description }) {
+  static addVector({ title, url, createdAt, index, description, fetchFailed }) {
     const fullUrl = new URL(url);
     Bookmarks.vectorStore.addDocuments([
       {
@@ -148,6 +153,7 @@ export class Bookmarks {
           url,
           createdAt,
           description,
+          fetchFailed,
         },
       },
     ]);
@@ -159,46 +165,49 @@ export class Bookmarks {
     if (vectorToUpdate.metadata.url.description !== undefined) {
       console.log(
         `Vector for url: ${url}, is already processed. Description ${
-          vectorToUpdate.metadata.url.description ? 'was fetched' : 'was not fetched'
+          vectorToUpdate.metadata.description ? 'was fetched' : 'was not fetched'
         }`
       );
       return;
     }
 
-    Website.getDescription(url).then(
-      (result) => {
+    if (vectorToUpdate.metadata.description !== undefined) {
+    }
+
+    Website.getDescription(url)
+      .then((description) => {
         console.log(`Succeeded: ${url}`);
 
         // Delete existing vector
         Bookmarks.deleteVectorFromUrl(url);
 
         // Store new vector
-        Bookmarks.addVector({ title, url, createdAt, index, description: true });
+        Bookmarks.addVector({ title, url, createdAt, index, description, fetchFailed: false });
         callback && callback(updateProgress());
         return true;
-      },
-      (err) => {
+      })
+      .catch((err) => {
         console.log(`${err?.message}: ${url} `);
 
         // Delete existing vector
         Bookmarks.deleteVectorFromUrl(url);
 
         // Store new vector
-        Bookmarks.addVector({ title, url, createdAt, index, description: false });
+        Bookmarks.addVector({ title, url, createdAt, index, description: undefined, fetchFailed: true });
         callback && callback(updateProgress());
         return false;
-      }
-    );
+      });
   }
 
   static async getVectorStore(): Promise<VectorStoreType | null> {
-    const { vectorStore, numBookmarks } = await chrome.storage.local.get(['vectorStore', 'numBookmarks']);
-    if (!numBookmarks) {
+    const vectors =
+      (await Bookmarks.db.allDocs({ include_docs: true })).rows.map((row) => ({ ...row?.doc?.vector })) || [];
+
+    if (vectors.length === 0) {
       return null;
     }
 
-    const vectors = JSON.parse(vectorStore);
-    // reconstruct MemoryVectorStore from vectors json data
+    // reconstruct MemoryVectorStore
     const memoryVectorStore: MemoryVectorStore = new MemoryVectorStore(Bookmarks.embeddings);
 
     memoryVectorStore.addVectors(
@@ -211,14 +220,18 @@ export class Bookmarks {
       })
     );
 
-    return { vectorStore: memoryVectorStore, numBookmarks };
+    return { vectorStore: memoryVectorStore, numBookmarks: vectors.length };
   }
 
-  static async setVectorStore(vectorStore, numBookmarks) {
-    return await chrome.storage.local.set({
-      vectorStore,
-      numBookmarks,
-      updatedAt: Date.now(),
-    });
+  static async setVectorStore() {
+    if (!Bookmarks.vectorStore) return;
+    return await Promise.allSettled(
+      Bookmarks.vectorStore.memoryVectors.map((vector) => Bookmarks.db.put({ _id: vector.metadata.id, vector }))
+    );
+  }
+
+  static async getBySimilarity(searchString) {
+    const result = await Bookmarks.vectorStore.similaritySearchWithScore(searchString, 100);
+    return result.filter((m) => m[1] > 0.76);
   }
 }

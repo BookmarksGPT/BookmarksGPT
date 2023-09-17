@@ -53,6 +53,7 @@ export default function ChatInputBox({ onSubmit, disabled }) {
             ></textarea>
             <button
               type="submit"
+              disabled={disabled}
               className="inline-flex justify-center p-4 text-gray-300 rounded-md cursor-pointer dark:text-gray-200 hover:bg-gray-400 hover:text-gray-900 hover:dark:text-gray-700 "
             >
               <svg
