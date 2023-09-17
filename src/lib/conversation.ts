@@ -1,49 +1,72 @@
-import { LLMChain } from 'langchain/chains';
-import { OpenAI } from 'langchain/llms/openai';
-import { PromptTemplate } from 'langchain/prompts';
+import { ConversationChain } from 'langchain/chains';
+import { ChatOpenAI } from 'langchain/chat_models/openai';
+import { BufferMemory } from 'langchain/memory';
+import {
+  ChatPromptTemplate,
+  HumanMessagePromptTemplate,
+  MessagesPlaceholder,
+  SystemMessagePromptTemplate
+} from 'langchain/prompts';
+import { ChainValues } from 'langchain/schema';
 import { Bookmarks } from './bookmarks.ts';
 
 export class Conversation {
+  static chatMemory = new BufferMemory({ returnMessages: true });
   constructor() {}
 
-  static async generateChatFromMatches(message, matches) {
-    const llm = new OpenAI({
+  static async generateChat(message): Promise<ChainValues> {
+    // const llm = new OpenAI({
+    //   openAIApiKey: process.env.OPENAI_API_KEY,
+    //   temperature: 0.9,
+    // });
+
+    const chat = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
-      temperature: 0.9,
+      temperature: 0,
     });
 
-    const prompt_template = `You are a bookmarks manager. Answer the following QUESTION based on the CONTEXT given. If QUESTION is not a question then assume that the user wants to know if he has bookmarks related to the words in his question. You answer should mention how many bookmarks that have a score of 85% or above were found and the titles of those bookmarks. If you do not know the answer and the CONTEXT doesn't contain the answer truthfully say "I don't know". 
+    const system_prompt_template = `Let's play a game where you will play the role of a Query Assistant, a new version of ChatGPT that is capable of generating a JSON object which describes the user's intent. 
+    In order to do that, you will assist the user in explaining what they are looking for by having a chat with them. 
+    As The Query Assistant, your main task is to produce a JSON object which is an accurate representation of what the user wants. 
+    The JSON Object should contain three properties: 'keywords', 'selector' and 'action'.
+    'keywords' should contain any keywords that the user wishes to search for. 
+    'selector' should contain a selector that can be used to query the database. 
+    'action' should contain one of the following options and NOTHING else: 'search', 'copy_to_clipboard', 'export'. 
+    The JSON Object MUST always include all three properties and nothing else except from these properties.
+    If the user does not specify the action that they want to perform then the Query Assistant should set 'action' to be equal to 'search'.
+    You should include the JSON object in ALL your responses.    
     
-    CONTEXT:
-    The user has the following bookmarks stored:
-    {context}
-    
-    QUESTION:
-    {question}
-    
-    ANSWER:
+
+    Your first output must be:
+"Hello! I'm The Query Assistant, an advanced AI that can help you find bookmarks from your library. To start with this, I need from you to provide:
+
+- The topic or subject you are researching.
+- Any specific requirements or criteria for the sources.
+- The preferred format of the sources (academic journals, books, articles, etc.).
+- Any additional details or preferences you have for the research.
+
+With this information, I will be able to assist you in your academic pursuits and provide you with reliable and credible sources to support your research. Let's get started!" and here you must stop writing.
     `;
+    // ${JSON.stringify({ selector: { keywords: ['guitars'] } })}
+    // ${JSON.stringify({ selector: { keywords: ['electronics'], timestamp: { $gte: `yesterday` } } })}
 
-    const prompt = PromptTemplate.fromTemplate(prompt_template);
+    const chatPrompt = ChatPromptTemplate.fromPromptMessages([
+      SystemMessagePromptTemplate.fromTemplate(system_prompt_template),
+      new MessagesPlaceholder('history'),
+      HumanMessagePromptTemplate.fromTemplate(`{input}`),
+    ]);
 
-    const matches_as_context = matches
-      ?.map((match, index) => {
-        const { pageContent: title } = match[0];
-        const score = match[1];
-        return `{ title: '${title}', score: ${~~((score * 10000) / 100)}% }`;
-      })
-      .join('\n');
-    8;
+    // const prompt = PromptTemplate.fromTemplate(prompt_template);
 
-    const chain = new LLMChain({
-      llm,
-      prompt,
+    const chain = new ConversationChain({
+      memory: Conversation.chatMemory,
+      llm: chat,
+      prompt: chatPrompt,
       verbose: true,
     });
 
-    return await chain.predict({
-      context: matches_as_context,
-      question: message,
+    return await chain.call({
+      input: message,
     });
   }
 

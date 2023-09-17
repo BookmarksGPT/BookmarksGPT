@@ -1,7 +1,10 @@
+// hyperthetical AI 07b001e8-d7fc-4563-b49d-028d9fb40e5f
+
 import 'flowbite';
 import * as React from 'react';
 import { useEffect, useState, useTransition } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PouchDB } from 'react-pouchdb';
 import ChatContainer from './pages/chat-container.tsx';
 
 import { posthog } from 'posthog-js';
@@ -9,7 +12,6 @@ import './content-scripts/recorder-v2.js';
 
 function Popup() {
   const [bookmarksIndexed, setBookmarksIndexed] = useState(null);
-  const [isPending, startTransition] = useTransition();
 
   if (!posthog.__loaded) {
     // console.log('posthog init');
@@ -33,16 +35,17 @@ function Popup() {
       initBookmarks().then((bookmarks) => {
         console.log('Initialize started');
         chrome.runtime.sendMessage({ type: 'INITIALIZE', bookmarks }, async (numOfBookmarks) => {
-          console.log('Initialize completed');
-          startTransition(() => {
-            setBookmarksIndexed(numOfBookmarks);
-          });
+          setBookmarksIndexed(numOfBookmarks);
         });
       });
     }
-  }, [isPending]);
+  }, []);
 
-  return <ChatContainer bookmarksIndexed={bookmarksIndexed} />;
+  return (
+    <PouchDB name="BookmarksGPT">
+      <ChatContainer bookmarksIndexed={bookmarksIndexed} />
+    </PouchDB>
+  );
 }
 
 const root = document.getElementById('react-target');
