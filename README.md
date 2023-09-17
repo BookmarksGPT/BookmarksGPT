@@ -2,7 +2,7 @@
 # BookmarksGPT
 
 BookmarksGPT is a chrome extension which organizes and searches your bookmarks using GPT.
-
+**The project is still in progress**
 
 
 
