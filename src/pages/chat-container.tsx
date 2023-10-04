@@ -99,10 +99,7 @@ export default function ChatContainer({ bookmarksIndexed }) {
   }, [messages?.length]);
 
   return (
-    <div
-      className="backdrop-blur-md bg-white/30 dark:bg-gray-600"
-      style={{ width: 400, height: 600 }}
-    >
+    <div className="backdrop-blur-xl bg-white/30 dark:bg-gray-600 h-full w-full">
       <div className="main-body container m-auto w-11/12 h-full flex flex-col">
         <ChatHeader
           appendMessage={appendMessage}

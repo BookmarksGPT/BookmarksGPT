@@ -11,6 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "@types/pouchdb": "^6.4.0",
+    "cheerio": "^1.0.0-rc.12",
     "flowbite": "^1.8.1",
     "html-to-text": "^9.0.5",
     "langchain": "^0.0.140",
@@ -36,6 +37,7 @@
     "copy-webpack-plugin": "^11.0.0",
     "dotenv-webpack": "^8.0.1",
     "html-webpack-plugin": "^5.5.3",
+    "html-webpack-skip-assets-plugin": "^1.0.3",
     "source-map-loader": "^4.0.1",
     "tailwindcss": "^3.3.3",
     "ts-loader": "^9.4.4",
