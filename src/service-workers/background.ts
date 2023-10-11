@@ -57,6 +57,34 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
   }
 });
 
+chrome.action.onClicked.addListener((tab) => {
+  console.log('click called for tab', tab?.id);
+  if (tab?.id) {
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const isOpen = document.getElementById('bookmarksgpt-frame');
+        if (isOpen) {
+          isOpen.remove();
+          return;
+        }
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('id', 'bookmarksgpt-frame');
+        iframe.setAttribute(
+          'style',
+          'border-radius: 10px; top: 10px;right: 10px; width: min(600px, 50%); min-width: 300px; height: calc(100% - 20px); z-index: 2147483650; border: 3px solid gray; position:fixed;'
+        );
+        iframe.setAttribute('allow', '');
+        iframe.src = chrome.runtime.getURL('popup.html');
+        document.body.appendChild(iframe);
+        document.addEventListener('visibilitychange', function () {
+          iframe.remove();
+        });
+      },
+    });
+  }
+});
+
 // // This is for doing something when the user bookmarks the current tab
 // chrome.bookmarks.onCreated.addListener(() => {
 //   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -79,26 +107,3 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
 //     }
 //   });
 // });
-
-// function injectModal() {
-//   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-//     const activeTab = tabs[0];
-//     if (activeTab?.url?.startsWith('chrome://')) {
-//       // Add some code to send a UX message that it doesn't work in here.
-//     } else if (activeTab?.id) {
-//       chrome.scripting.insertCSS(
-//         {
-//           target: { tabId: activeTab.id },
-//           files: ['modal.css'],
-//         },
-//         () => {
-//           // Once CSS is injected, inject the JavaScript
-//           chrome.scripting.executeScript({
-//             target: { tabId: activeTab.id! },
-//             files: ['modal.js'],
-//           });
-//         }
-//       );
-//     }
-//   });
-// }

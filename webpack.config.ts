@@ -1,8 +1,9 @@
 import CopyPlugin from 'copy-webpack-plugin';
+import Dotenv from 'dotenv-webpack';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+import { HtmlWebpackSkipAssetsPlugin } from 'html-webpack-skip-assets-plugin';
 import path from 'path';
 import webpack from 'webpack';
-import Dotenv from 'dotenv-webpack';
 
 const config: webpack.Configuration = {
   mode: 'production',
@@ -32,6 +33,10 @@ const config: webpack.Configuration = {
     new HtmlWebpackPlugin({
       template: './src/popup.html',
       filename: 'popup.html',
+      skipAssets: ['background.*', (asset) => asset.attributes && asset.attributes['x-skip']],
+    }),
+    new HtmlWebpackSkipAssetsPlugin({
+      skipAssets: ['background.*', (asset) => asset.attributes && asset.attributes['x-skip']],
     }),
     new CopyPlugin({
       patterns: [{ from: 'public' }],
