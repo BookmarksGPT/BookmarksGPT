@@ -45,9 +45,10 @@ export class Bookmarks {
   constructor() {}
 
   private static getTitles(titles, bookmarks) {
-    const { title, dateAdded, url } = bookmarks || {};
+    const { id, title, dateAdded, url } = bookmarks || {};
     if (title && url) {
       titles.push({
+        id,
         title,
         createdAt: dateAdded,
         url,
@@ -80,7 +81,7 @@ export class Bookmarks {
     // Create an initial version using only the immediately available data
     Bookmarks.vectorStore = await MemoryVectorStore.fromTexts(
       Bookmarks.titles
-        .map(({ title, url, createdAt }) => {
+        .map(({ id, title, url, createdAt }) => {
           const fullUrl = new URL(url);
 
           return `{
@@ -90,10 +91,12 @@ export class Bookmarks {
             }`;
         })
         .filter((c) => c),
-      Bookmarks.titles.map(({ createdAt, url, title }, index) => ({ index, url, title, createdAt })),
+      Bookmarks.titles.map(({ id, createdAt, url, title }, index) => ({ id, index, url, title, createdAt })),
       Bookmarks.embeddings
     );
 
+    const res = await Bookmarks.setVectorStore();
+    const allDocs = await Bookmarks.db.allDocs();
     Bookmarks.setVectorStore();
     return { vectorStore: Bookmarks.vectorStore, numBookmarks: Bookmarks.titles.length };
   }
@@ -202,6 +205,8 @@ export class Bookmarks {
   static async getVectorStore(): Promise<VectorStoreType | null> {
     const vectors =
       (await Bookmarks.db.allDocs({ include_docs: true })).rows.map((row) => ({ ...row?.doc?.vector })) || [];
+    const allDocs = await Bookmarks.db.allDocs({ include_docs: true });
+    const vectors = allDocs.rows.map((row) => ({ ...row?.doc?.vector })) || [];
 
     if (vectors.length === 0) {
       return null;
@@ -223,10 +228,12 @@ export class Bookmarks {
     return { vectorStore: memoryVectorStore, numBookmarks: vectors.length };
   }
 
-  static async setVectorStore() {
+  static setVectorStore() {
     if (!Bookmarks.vectorStore) return;
     return await Promise.allSettled(
       Bookmarks.vectorStore.memoryVectors.map((vector) => Bookmarks.db.put({ _id: vector.metadata.id, vector }))
+    return Promise.allSettled(
+      Bookmarks.vectorStore.memoryVectors.map((vector) => Bookmarks.db.put({ _id: vector.metadata.url, vector }))
     );
   }
 
