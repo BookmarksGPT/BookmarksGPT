@@ -2,6 +2,8 @@ import PouchDB from 'pouchdb';
 import { Bookmarks } from '../lib/bookmarks.ts';
 import { Conversation } from '../lib/conversation.ts';
 import { MessageType } from '../pages/chat-container.tsx';
+import { Websites } from '../lib/website.ts';
+import ESPRESSO_LINKS from '../lib/labkit/expresso-makers.ts';
 
 const pouch = new PouchDB('BookmarksGPT');
 
@@ -25,6 +27,9 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
       pouch.post({
         type: MessageType.session,
         timestamp: Date.now(),
+      });
+      Websites.clear().then(() => {
+        Websites.add(ESPRESSO_LINKS[0]);
       });
       Bookmarks.getVectorStore()
         .then((result) => {
