@@ -10,6 +10,8 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 
 interface WebsiteDocument {
   webSite: DomNode[];
+  updatedAt: Date;
+  createdAt: Date;
 }
 
 async function fetchAndModify(request) {
@@ -99,15 +101,51 @@ export class Websites {
 
   constructor() {}
 
-  static async add(url: string) {
-    const webSite = await fetchAndModify(url);
-    const webSiteInJSON = await webSite.json();
-    await Websites.db.upsert(url, function (doc: WebsiteDocument) {
-      if (!doc.webSite) {
-        doc.webSite = webSiteInJSON;
-      }
-      return doc;
+  static async clear() {
+    const destroyed = await Websites.db.destroy();
+    console.info(`Websites:clear destroyed`, destroyed);
+    Websites.db = new PouchDB<WebsiteDocument>('BookmarksGPTWebsites', {
+      auto_compaction: true,
     });
+    const info = await Websites.db.info();
+    console.info(`Websites:clear info`, info);
+    return;
+  }
+
+  static async add(url: string, daysSinceLastUpdate: number = 0) {
+    console.info(`Websites::add ${url}, ${daysSinceLastUpdate}`);
+    let modifier = {};
+    let updateIfBefore = new Date();
+    updateIfBefore.setUTCHours(0, 0, 0, 0);
+    updateIfBefore.setDate(updateIfBefore.getDate() - daysSinceLastUpdate);
+    console.info(`Websites::add updateIfBefore = ${updateIfBefore}`);
+
+    try {
+      const docExists = (await Websites.db.find({ selector: { _id: url } })).docs?.[0];
+      console.info(`Websites::add docExists`, docExists);
+      if (!docExists || docExists?.updatedAt < updateIfBefore) {
+        const now = new Date();
+        const webSite = await fetchAndModify(url);
+        const webSiteInJSON = await webSite.json();
+        modifier = {
+          webSite: webSiteInJSON,
+          updatedAt: now,
+          createdAt: docExists?.createdAt || now,
+        };
+        console.info(`Websites::add modifier`, modifier);
+        const result = await Websites.db.upsert(url, function (doc: WebsiteDocument) {
+          Object.assign(doc, { ...modifier });
+          return doc;
+        });
+        console.info(`Websites::add result`, result);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    return {
+      url: url,
+      ...modifier,
+    };
   }
 }
 
