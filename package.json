@@ -15,7 +15,7 @@
     "flowbite": "^1.8.1",
     "html-to-text": "^9.0.5",
     "htmlparser2": "^9.0.0",
-    "langchain": "^0.0.140",
+    "langchain": "^0.0.169",
     "posthog-js": "^1.77.2",
     "pouchdb": "^8.0.1",
     "pouchdb-find": "^8.0.1",
@@ -49,7 +49,7 @@
     "tslint-eslint-rules": "^5.4.0",
     "tslint-microsoft-contrib": "^6.2.0",
     "typescript": "^5.2.2",
-    "webpack": "^5.88.2",
+    "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   }
 }
