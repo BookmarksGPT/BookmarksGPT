@@ -2,7 +2,7 @@ import PouchDB from 'pouchdb';
 import { Bookmarks } from '../lib/bookmarks.ts';
 import { Conversation } from '../lib/conversation.ts';
 import { MessageType } from '../pages/chat-container.tsx';
-import { Websites } from '../lib/website.ts';
+import { WebPages } from '../lib/website.ts';
 import ESPRESSO_LINKS from '../lib/labkit/expresso-makers.ts';
 
 const pouch = new PouchDB('BookmarksGPT');
@@ -28,9 +28,13 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
         type: MessageType.session,
         timestamp: Date.now(),
       });
-      Websites.clear().then(() => {
-        Websites.add(ESPRESSO_LINKS[0]);
-      });
+      // WebPages.clear()
+      //   .then(() => {
+      //     return Promise.allSettled(ESPRESSO_LINKS.map((link) => WebPages.add(link)));
+      //   })
+      //   .then(() => {
+      //     return Promise.allSettled(ESPRESSO_LINKS.map((link) => WebPages.addSummary(link)));
+      //   });
       Bookmarks.getVectorStore()
         .then((result) => {
           return result ?? Bookmarks.createBookmarkVectorStore(bookmarks);
