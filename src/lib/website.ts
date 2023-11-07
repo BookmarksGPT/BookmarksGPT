@@ -10,7 +10,7 @@ import { DomNode, fetchWebsite } from './DomNode.ts';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 
-interface WebsiteDocument {
+export interface WebsiteDocument {
   webSite: DomNode[];
   updatedAt: Date;
   createdAt: Date;
@@ -33,7 +33,7 @@ export class WebPages {
       basePath: 'https://oai.hconeai.com/v1',
       baseOptions: {
         headers: {
-          'Helicone-Auth': 'Bearer sk-lk7x3qy-2fyuxna-rs4nfay-egycxdq',
+          'Helicone-Auth': `Bearer ${process.env.HELICONEAI_API_KEY}`,
         },
       },
     }
