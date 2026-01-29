@@ -2,10 +2,56 @@ import PouchDB from 'pouchdb';
 import { Bookmarks } from '../lib/bookmarks.ts';
 import { Conversation } from '../lib/conversation.ts';
 import { MessageType } from '../pages/chat-container.tsx';
-import { WebPages } from '../lib/website.ts';
+import { Websites } from '../lib/website.ts';
 import ESPRESSO_LINKS from '../lib/labkit/expresso-makers.ts';
 
 const pouch = new PouchDB('BookmarksGPT');
+
+// Function to handle iframe creation/removal
+const toggleIframe = (tabId) => {
+  chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const isOpen = document.getElementById('bookmarksgpt-frame');
+      if (isOpen) {
+        isOpen.remove();
+        return;
+      }
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('id', 'bookmarksgpt-frame');
+      iframe.setAttribute(
+        'style',
+        'border-radius: 10px; top: 10px;right: 10px; width: min(600px, 50%); min-width: 300px; height: calc(100% - 20px); z-index: 2147483650; border: 3px solid gray; position:fixed;'
+      );
+      iframe.setAttribute('allow', '');
+      iframe.src = chrome.runtime.getURL('popup.html');
+      document.body.appendChild(iframe);
+      document.addEventListener('visibilitychange', function () {
+        iframe.remove();
+      });
+    },
+  });
+};
+
+// Command handler for keyboard shortcut
+chrome.commands.onCommand.addListener((command) => {
+  if (command === 'toggle-frame') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const activeTab = tabs[0];
+      if (activeTab?.id) {
+        toggleIframe(activeTab.id);
+      }
+    });
+  }
+});
+
+// Click handler (existing functionality)
+chrome.action.onClicked.addListener((tab) => {
+  console.log('click called for tab', tab?.id);
+  if (tab?.id) {
+    toggleIframe(tab.id);
+  }
+});
 
 chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, sendResponse) => {
   switch (type) {
@@ -28,30 +74,20 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
         type: MessageType.session,
         timestamp: Date.now(),
       });
-      // WebPages.clear()
-      //   .then(() => {
-      //     return Promise.allSettled(ESPRESSO_LINKS.map((link) => WebPages.add(link)));
-      //   })
-      //   .then(() => {
-      //     return Promise.allSettled(ESPRESSO_LINKS.map((link) => WebPages.addSummary(link)));
-      //   });
+      Websites.clear().then(() => {
+        Websites.add(ESPRESSO_LINKS[0]);
+      });
       Bookmarks.getVectorStore()
         .then((result) => {
           return result ?? Bookmarks.createBookmarkVectorStore(bookmarks);
         })
         .then((result) => {
           console.log(result?.vectorStore);
+          console.log(`Number of bookmarks: ${result?.numBookmarks}`);
           sendResponse(result.numBookmarks);
         });
       return true;
     case 'REQUEST':
-      // Promise.allSettled([Bookmarks.getBySimilarity(message), run(message)]).then(
-      //   (result: any) => {
-      //     console.log('[REQUEST] Sending response to popup');
-      //     console.log(result);
-      //     sendResponse({ matches: result[0]?.value, response: result[1]?.value });
-      //   }
-      // );
       Promise.allSettled([Bookmarks.getBySimilarity(message), Conversation.generateChat(message)]).then(
         (result: any) => {
           console.log('[REQUEST] Sending response to popup');
@@ -65,54 +101,3 @@ chrome.runtime.onMessage.addListener(({ type, message, bookmarks }, sender, send
       return true;
   }
 });
-
-chrome.action.onClicked.addListener((tab) => {
-  console.log('click called for tab', tab?.id);
-  if (tab?.id) {
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        const isOpen = document.getElementById('bookmarksgpt-frame');
-        if (isOpen) {
-          isOpen.remove();
-          return;
-        }
-        const iframe = document.createElement('iframe');
-        iframe.setAttribute('id', 'bookmarksgpt-frame');
-        iframe.setAttribute(
-          'style',
-          'border-radius: 10px; top: 10px;right: 10px; width: min(600px, 50%); min-width: 300px; height: calc(100% - 20px); z-index: 2147483650; border: 3px solid gray; position:fixed;'
-        );
-        iframe.setAttribute('allow', '');
-        iframe.src = chrome.runtime.getURL('popup.html');
-        document.body.appendChild(iframe);
-        document.addEventListener('visibilitychange', function () {
-          iframe.remove();
-        });
-      },
-    });
-  }
-});
-
-// // This is for doing something when the user bookmarks the current tab
-// chrome.bookmarks.onCreated.addListener(() => {
-//   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-//     const activeTab = tabs[0];
-//     if (activeTab?.id) {
-//       chrome.scripting.executeScript(
-//         {
-//           target: { tabId: activeTab.id },
-//           files: ['content.js'],
-//         },
-//         () => {
-//           const id = activeTab?.id;
-//           if (id) {
-//             chrome.tabs.sendMessage(id, { action: 'extractData' }, (response) => {
-//               console.log(response);
-//             });
-//           }
-//         }
-//       );
-//     }
-//   });
-// });

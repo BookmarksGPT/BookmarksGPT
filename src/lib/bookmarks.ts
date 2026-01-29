@@ -2,11 +2,31 @@ import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { Website } from './website.ts';
 import PouchDB from 'pouchdb';
-import { ProgressTracker } from './ProgressTracker.ts';
 
 interface VectorStoreType {
   vectorStore: MemoryVectorStore;
   numBookmarks: number;
+}
+
+// TODO: DO NOT RETRY FAILED
+// init db first time (same as full reset - this will eventually go in settings)
+// add new bookmark
+// update db with new stuff & fetch missing (and empty) descriptions || add new button for testing for now
+
+class ProgressTracker {
+  total: any[];
+  constructor(size: number) {
+    this.total = Array(size).fill(false, 0, size);
+    console.log(`ProgressTracker: ${this.total.length} initialized`);
+  }
+
+  updateProgress(index) {
+    // update the total tracker
+    this.total[index] = true;
+    const completed = this.total.filter((t) => t === true);
+    console.log(`updating index ${index} ${completed.length}/${this.total.length}`);
+    return ~~((completed.length * 100) / this.total.length);
+  }
 }
 
 interface VectorDocument {
@@ -185,8 +205,8 @@ export class Bookmarks {
   static async getVectorStore(): Promise<VectorStoreType | null> {
     const vectors =
       (await Bookmarks.db.allDocs({ include_docs: true })).rows.map((row) => ({ ...row?.doc?.vector })) || [];
-    const allDocs = await Bookmarks.db.allDocs({ include_docs: true });
-    const vectors = allDocs.rows.map((row) => ({ ...row?.doc?.vector })) || [];
+    // const allDocs = await Bookmarks.db.allDocs({ include_docs: true });
+    // const vectors = allDocs.rows.map((row) => ({ ...row?.doc?.vector })) || [];
 
     if (vectors.length === 0) {
       return null;
@@ -208,12 +228,12 @@ export class Bookmarks {
     return { vectorStore: memoryVectorStore, numBookmarks: vectors.length };
   }
 
-  static setVectorStore() {
+  static async setVectorStore() {
     if (!Bookmarks.vectorStore) return;
     return await Promise.allSettled(
       Bookmarks.vectorStore.memoryVectors.map((vector) => Bookmarks.db.put({ _id: vector.metadata.id, vector }))
-    return Promise.allSettled(
-      Bookmarks.vectorStore.memoryVectors.map((vector) => Bookmarks.db.put({ _id: vector.metadata.url, vector }))
+    // return Promise.allSettled(
+    //   Bookmarks.vectorStore.memoryVectors.map((vector) => Bookmarks.db.put({ _id: vector.metadata.url, vector }))
     );
   }
 

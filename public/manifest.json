@@ -38,5 +38,14 @@
       "resources": ["icons/icon128.png", "icons/icon48.png", "popup.html"],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "commands": {
+    "toggle-frame": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Toggle BookmarksGPT frame"
+    }
+  }
 }

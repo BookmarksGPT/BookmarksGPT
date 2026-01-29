@@ -1,3 +1,4 @@
+import { Parser } from 'htmlparser2';
 import { Document } from 'langchain/document';
 import { HtmlToTextTransformer } from 'langchain/document_transformers/html_to_text';
 import PouchDB from 'pouchdb';
@@ -6,193 +7,145 @@ PouchDB.plugin(require('pouchdb-upsert'));
 import { loadSummarizationChain } from 'langchain/chains';
 import { OpenAI } from 'langchain/llms/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { DomNode, fetchWebsite } from './DomNode.ts';
-import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 
-export interface WebsiteDocument {
+interface WebsiteDocument {
   webSite: DomNode[];
   updatedAt: Date;
   createdAt: Date;
 }
 
-export class WebPages {
-  static db = new PouchDB<WebsiteDocument>('BookmarksGPTWebPages', {
+async function fetchAndModify(request) {
+  const originalResponse = await fetch(request);
+  const text = await originalResponse.text();
+  const domObject = parseAndManipulateDOM(text);
+
+  const jsonResponse = JSON.stringify(domObject);
+
+  return new Response(jsonResponse, {
+    headers: {
+      ...originalResponse.headers,
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+interface NodeAttributes {
+  [key: string]: string;
+}
+
+interface DomNode {
+  type: string;
+  attributes?: NodeAttributes;
+  children: Array<DomNode | TextNode>;
+}
+
+interface TextNode {
+  type: 'text';
+  content: string;
+}
+
+function createNode(tagName: string, attributes: NodeAttributes = {}): DomNode {
+  return {
+    type: tagName,
+    children: [],
+  };
+}
+
+function parseAndManipulateDOM(htmlContent) {
+  let rootNode = createNode('root');
+  let currentParent = rootNode;
+
+  const parentsStack = [rootNode];
+
+  const parser = new Parser(
+    {
+      onopentag(name, attribs) {
+        const newNode = createNode(name, attribs);
+        currentParent?.children?.push(newNode);
+
+        parentsStack.push(newNode);
+        currentParent = newNode;
+      },
+      ontext(text) {
+        if (text.trim()) {
+          // only consider non-empty text nodes
+          currentParent?.children?.push({
+            type: 'text',
+            content: text.trim(),
+          });
+        }
+      },
+      onclosetag() {
+        parentsStack.pop();
+        currentParent = parentsStack[parentsStack.length - 1];
+      },
+    },
+    { decodeEntities: true }
+  );
+
+  parser.write(htmlContent);
+  parser.end();
+
+  return rootNode;
+}
+
+export class Websites {
+  static db = new PouchDB<WebsiteDocument>('BookmarksGPTWebsites', {
     auto_compaction: true,
   });
-  static embeddings = new OpenAIEmbeddings({
-    openAIApiKey: process.env.OPENAI_API_KEY,
-  });
-  static vectorStore: MemoryVectorStore = new MemoryVectorStore(WebPages.embeddings);
-  static llm = new OpenAI(
-    {
-      openAIApiKey: process.env.OPENAI_API_KEY,
-      temperature: 0.9,
-    },
-    {
-      basePath: 'https://oai.hconeai.com/v1',
-      baseOptions: {
-        headers: {
-          'Helicone-Auth': `Bearer ${process.env.HELICONEAI_API_KEY}`,
-        },
-      },
-    }
-  );
+  // static embeddings = new OpenAIEmbeddings({
+  //   openAIApiKey: process.env.OPENAI_API_KEY,
+  // });
+  // static vectorStore;
+  // static titles = [];
 
   constructor() {}
 
   static async clear() {
-    const destroyed = await WebPages.db.destroy();
-    console.info(`WebPages:clear destroyed`, destroyed);
-    WebPages.db = new PouchDB<WebsiteDocument>('BookmarksGPTWebPages', {
+    const destroyed = await Websites.db.destroy();
+    console.info(`Websites:clear destroyed`, destroyed);
+    Websites.db = new PouchDB<WebsiteDocument>('BookmarksGPTWebsites', {
       auto_compaction: true,
     });
-    const info = await WebPages.db.info();
-    console.info(`WebPages:clear info`, info);
+    const info = await Websites.db.info();
+    console.info(`Websites:clear info`, info);
     return;
   }
 
   static async add(url: string, daysSinceLastUpdate: number = 0) {
-    console.info(`WebPages::add ${url}, ${daysSinceLastUpdate}`);
+    console.info(`Websites::add ${url}, ${daysSinceLastUpdate}`);
     let modifier = {};
     let updateIfBefore = new Date();
     updateIfBefore.setUTCHours(0, 0, 0, 0);
     updateIfBefore.setDate(updateIfBefore.getDate() - daysSinceLastUpdate);
-    console.info(`WebPages::add updateIfBefore = ${updateIfBefore}`);
+    console.info(`Websites::add updateIfBefore = ${updateIfBefore}`);
 
     try {
-      const existingDoc = (await WebPages.db.find({ selector: { _id: url } })).docs?.[0];
-      console.info(`WebPages::add existingDoc`, existingDoc);
-      if (!existingDoc || existingDoc?.updatedAt < updateIfBefore) {
+      const docExists = (await Websites.db.find({ selector: { _id: url } })).docs?.[0];
+      console.info(`Websites::add docExists`, docExists);
+      if (!docExists || docExists?.updatedAt < updateIfBefore) {
         const now = new Date();
-        const webSite = await fetchWebsite(url);
+        const webSite = await fetchAndModify(url);
         const webSiteInJSON = await webSite.json();
         modifier = {
-          webSite: webSiteInJSON.rootNode,
-          description: webSiteInJSON.description,
-          text: webSiteInJSON.text,
-          chunks: webSiteInJSON.chunks,
+          webSite: webSiteInJSON,
           updatedAt: now,
-          createdAt: existingDoc?.createdAt || now,
+          createdAt: docExists?.createdAt || now,
         };
-        console.info(`WebPages::add modifier`, modifier);
-        const result = await WebPages.db.upsert(url, function (doc: WebsiteDocument) {
+        console.info(`Websites::add modifier`, modifier);
+        const result = await Websites.db.upsert(url, function (doc: WebsiteDocument) {
           Object.assign(doc, { ...modifier });
           return doc;
         });
-        console.info(`WebPages::add result`, result);
+        console.info(`Websites::add result`, result);
       }
     } catch (err) {
       console.error(err);
     }
     return {
-      url,
+      url: url,
       ...modifier,
     };
-  }
-
-  static async updateStatus(url, status) {
-    let modifier = {};
-    let doc;
-    try {
-      doc = (await WebPages.db.find({ selector: { _id: url } })).docs?.[0];
-      console.info(`WebPages::updateStatus existingDoc`, doc?.chunks);
-      modifier = {
-        status,
-        statusUpdatedAt: new Date(),
-      };
-      console.info(`WebPages::updateStatus modifier`, modifier);
-      const result = await WebPages.db.upsert(url, function (doc: WebsiteDocument) {
-        Object.assign(doc, { ...modifier });
-        return doc;
-      });
-      console.info(`WebPages::updateStatus result`, result);
-    } catch (err) {
-      console.error(err);
-    }
-
-    return {
-      ...doc,
-    };
-  }
-
-  static async addSummary(url) {
-    // TODO: skip if the summary was added > the last update.
-    let modifier = {};
-    let doc;
-    try {
-      doc = (await WebPages.db.find({ selector: { _id: url } })).docs?.[0];
-      console.info(`WebPages::addSummary existingDoc`, doc?.chunks);
-      await WebPages.updateStatus(url, 'GENERATING_SUMMARY');
-      modifier = {
-        updatedAt: new Date(),
-        summary: await WebPages.generateSummaryFromChunks(url, doc?.chunks),
-      };
-      console.info(`WebPages::addSummary modifier`, modifier);
-      const result = await WebPages.db.upsert(url, function (doc: WebsiteDocument) {
-        Object.assign(doc, { ...modifier });
-        return doc;
-      });
-      console.info(`WebPages::add result`, result);
-      await WebPages.updateStatus(url, 'IDLE');
-    } catch (err) {
-      console.error(err);
-    }
-
-    return {
-      ...doc,
-    };
-  }
-
-  private static async addVector({ title, url, createdAt, index, description, fetchFailed }) {
-    const fullUrl = new URL(url);
-    WebPages.vectorStore.addDocuments([
-      {
-        pageContent: `{
-            title: ${title},
-            URL: ${fullUrl.hostname}${fullUrl.pathname},
-            created_at: ${createdAt}
-        }`,
-        metadata: {
-          index,
-          title,
-          url,
-          createdAt,
-          description,
-          fetchFailed,
-        },
-      },
-    ]);
-  }
-
-  private static async generateSummaryFromChunks(url, chunks?, context?) {
-    try {
-      const newDocuments = chunks.map(
-        (pageContent) =>
-          new Document({
-            pageContent,
-            metadata: { url },
-          })
-      );
-
-      console.info(
-        `WebPages::generateSummary newDocuments ${newDocuments.length} chars: ${newDocuments.reduce(
-          (sum, doc) => sum + doc.pageContent.length,
-          0
-        )} `
-      );
-
-      const chain = loadSummarizationChain(WebPages.llm, { type: 'map_reduce', verbose: true });
-      const res = await chain.call({
-        input_documents: newDocuments,
-        timeout: 45000,
-      });
-      // res.text <-- summary
-      console.info('WebPages::generateSummary res.text', res?.text);
-      return res?.text;
-    } catch (err) {
-      console.error(err);
-    }
   }
 }
 
@@ -242,8 +195,6 @@ export class Website {
       if (fullUrl.hostname === 'github' || fullUrl.hostname === 'youtube') {
         return '';
       }
-
-      // TODO: move to function with pagecontent/metadata/context <== combined prompt
 
       // Summarization
       const transformer = new HtmlToTextTransformer();

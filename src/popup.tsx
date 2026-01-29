@@ -31,7 +31,7 @@ function Popup() {
       return await chrome.bookmarks.getTree();
     }
 
-    if (!bookmarksIndexed) {
+    if (bookmarksIndexed === null) {
       initBookmarks().then((bookmarks) => {
         console.log('Initialize started');
         chrome.runtime.sendMessage({ type: 'INITIALIZE', bookmarks }, async (numOfBookmarks) => {

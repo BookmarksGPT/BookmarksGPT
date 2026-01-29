@@ -86,7 +86,7 @@ export default function ChatContainer({ bookmarksIndexed }) {
   }
 
   useEffect(() => {
-    if (bookmarksIndexed) {
+    if (bookmarksIndexed !== null) {
       appendMessage({
         type: MessageType.system,
         message: `Welcome to Bookmarks GPT! You have ${bookmarksIndexed} bookmarks in your library! How can I help you today?`,
@@ -98,8 +98,19 @@ export default function ChatContainer({ bookmarksIndexed }) {
     scrollToBottom();
   }, [messages?.length]);
 
+  const handleClose = () => {
+    window.parent.postMessage({ type: 'CLOSE_IFRAME' }, '*');
+  };
+
   return (
-    <div className="backdrop-blur-xl bg-white/30 dark:bg-gray-600 h-full w-full">
+    <div className="backdrop-blur-xl bg-white/30 dark:bg-gray-600 h-full w-full relative">
+      <button
+        onClick={handleClose}
+        className="absolute top-2 right-4 text-gray-600 dark:text-gray-200 hover:text-gray-800 dark:hover:text-white text-2xl font-light leading-none"
+        aria-label="Close"
+      >
+        ×
+      </button>
       <div className="main-body container m-auto w-11/12 h-full flex flex-col">
         <ChatHeader
           appendMessage={appendMessage}
@@ -159,12 +170,12 @@ export default function ChatContainer({ bookmarksIndexed }) {
                 );
             }
           })}
-          {!bookmarksIndexed && <ChatAIIsThinkingBubble text="Please wait....I'm loading your bookmarks" />}
-          {bookmarksIndexed && disableInput && <ChatAIIsThinkingBubble text="hmm... let me think!" />}
+          {bookmarksIndexed !== null && disableInput && <ChatAIIsThinkingBubble text="hmm... let me think!" />}
+          {bookmarksIndexed === null && <ChatAIIsThinkingBubble text="Please wait....I'm loading your bookmarks" />}
         </div>
         <ChatInputBox
-          onSubmit={bookmarksIndexed ? onSubmit : () => null}
-          disabled={!bookmarksIndexed || disableInput}
+          onSubmit={bookmarksIndexed !== null ? onSubmit : () => null}
+          disabled={bookmarksIndexed === null || disableInput}
         />
       </div>
     </div>
